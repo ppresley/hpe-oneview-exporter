@@ -1,0 +1,30 @@
+services:
+  hpe-exporter:
+    image: hpe-oneview-exporter:v1  # Use the image you already have
+    container_name: hpe_synergy
+    ports:
+      - "8000:8000"  # Exposing port 8000
+    environment:
+      - ONEVIEW_HOST=https://<<host>>/rest  # Set your own
+      - USERNAME=thuruser          # Set the username
+      - PASSWORD=thurpass          # Set the password
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    volumes:
+      - ./app.py:/app/app.py
+        #command: gunicorn -b 0.0.0.0:8000 app:app  # Use Gunicorn to serve the app
+    command: python3 app.py
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+
+    networks:
+      - exporter_bridge
+
+networks:
+  exporter_bridge:
+    external: true
