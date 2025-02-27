@@ -470,8 +470,8 @@ def oneview_interconnect_statistics_info():
     Fetch the list of interconnects, then for each interconnect hit its statistics endpoint,
     and iterate over its portStatistics array. For each port, extract:
       - portName (from the portStatistics object)
-      - inSpeed: using rfc2233IfHCInOctets if available, otherwise rfc1213IfInOctets
-      - outSpeed: using rfc2233IfHCOutOctets if available, otherwise rfc1213IfOutOctets
+      - inSpeed: using commonStatistics.rfc1213IfInOctets (default to 0 if missing)
+      - outSpeed: using commonStatistics.rfc1213IfOutOctets (default to 0 if missing)
     The interconnect uid is extracted from the interconnect's "uri" field.
     For each port, update the Prometheus gauges:
       - oneview_interconnect_statistics_in_speed with the numeric inSpeed value.
@@ -479,12 +479,12 @@ def oneview_interconnect_statistics_info():
     """
     oneview_interconnect_statistics_in_speed.clear()
     oneview_interconnect_statistics_out_speed.clear()
-
+    
     try:
         inter_data = fetch_data("interconnects")
     except Exception:
         return
-
+    
     for inter in inter_data.get("members", []):
         uid = inter.get("uri", "").split("/")[-1] if inter.get("uri") else "unknown"
         # Fetch statistics for this interconnect.
@@ -492,19 +492,19 @@ def oneview_interconnect_statistics_info():
             stats = fetch_data(f"interconnects/{uid}/statistics")
         except Exception:
             continue
-
+        
         for port in stats.get("portStatistics", []):
             port_name = port.get("portName", "unknown")
             common_stats = port.get("commonStatistics", {})
-            # Prefer high capacity counters if available.
-            in_octets = common_stats.get("rfc2233IfHCInOctets", common_stats.get("rfc1213IfInOctets", 0))
-            out_octets = common_stats.get("rfc2233IfHCOutOctets", common_stats.get("rfc1213IfOutOctets", 0))
-
+            # Use only rfc1213IfInOctets and rfc1213IfOutOctets.
+            in_octets = common_stats.get("rfc1213IfInOctets", 0)
+            out_octets = common_stats.get("rfc1213IfOutOctets", 0)
+            
             oneview_interconnect_statistics_in_speed.labels(
                 interconnectUid=uid,
                 portName=port_name
             ).set(in_octets)
-
+            
             oneview_interconnect_statistics_out_speed.labels(
                 interconnectUid=uid,
                 portName=port_name
